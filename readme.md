@@ -9,4 +9,7 @@ Source separation has been identified as one of the many challenges one should o
 
 This repo contains code to test different existing approaches on the same tasks.
 
+## How to use
+This repo is meant to be used within the Docker `nussl` image that is available on the OVH ssh machine.
+
 ## Measures
