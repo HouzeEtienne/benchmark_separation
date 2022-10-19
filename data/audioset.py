@@ -3,7 +3,7 @@
 # sys.path.append('/workdir/Benchmark_separation')
 
 from data.mix_data import MixDataset
-import youtube_dl
+import yt_dlp
 # import nussl
 import os
 import pandas as pd
@@ -53,7 +53,7 @@ class AudioSetMix(MixDataset):
             if dl_size is not None:
                 self.infos = self.infos.sample(dl_size)
             self.path = os.path.dirname(self.path)
-            with youtube_dl.YoutubeDL(YDL_OPTS) as ydl:
+            with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
                 for idx, row in self.infos.iterrows():
                     print(idx, row)
                     with Bar("Downloading audio samples", max=dl_size) as bar:
@@ -63,10 +63,10 @@ class AudioSetMix(MixDataset):
                             if trim:
                                 print(f"Now trimming video")
                                 self._trim_sound(row)
-                        except youtube_dl.utils.ExtractorError as exc:
+                        except yt_dlp.utils.ExtractorError as exc:
                             print(f"Could not download {row['id']}")
                             self.infos = self.infos.drop(labels=[idx])
-                        except youtube_dl.utils.DownloadError as exc:
+                        except yt_dlp.utils.DownloadError as exc:
                             print(f"Could not download {row['id']}")
                             self.infos = self.infos.drop(labels=[idx])
                         except KeyboardInterrupt:
