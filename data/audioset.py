@@ -4,12 +4,13 @@
 
 from data.mix_data import MixDataset
 import yt_dlp
-# import nussl
 import os
 import pandas as pd
 from progress.bar import Bar
 import requests
 import scipy.io.wavfile as wavfile
+# if os.environ.get("NUSSL", False):
+#     import nussl
 
 YDL_OPTS = {
     "format": "bestaudio/best",
@@ -17,25 +18,33 @@ YDL_OPTS = {
         "key": "FFmpegExtractAudio",
         "preferredcodec": "wav"
     }],
-    "outtmpl": "./audioset/samples/%(id)s.%(ext)s"
+    "outtmpl": "./audioset/samples/%(id)s.%(ext)s",
+    "quiet": True
 }
 URL_AUDIOSET = "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/unbalanced_train_segments.csv"
 YOUTUBE_BASE = "https://youtube.com/watch?v="
 
 class AudioSetMix(MixDataset):
     def __init__(self, path: str | None=None, dl_size: int|None=None, target_dir: str|None=None,
-        trim=False) -> None:
+        trim=False, verbose=False) -> None:
         """Builds an MixDataset object to generate samples from the audioset DS.
 
         The audioset DS is available at `https://research.google.com/audioset/download.html`
 
         Args:
-            path (str | None, optional): path to either the csv file containing the addresses of the folder containing the dataset. Defaults to None.
-        """        
+            path (str | None, optional): path to either the csv file containing 
+                the addresses of the folder containing the dataset. Defaults to None.
+            dl_size (int | None, optional): _description_. Defaults to None.
+            target_dir (str | None, optional): _description_. Defaults to None.
+            trim (bool, optional): _description_. Defaults to False.
+            verbose (bool, optional): _description_. Defaults to False.
+        """
         super().__init__()
         self.infos: pd.DataFrame = None
         self.path = path
         self.ydl_options = YDL_OPTS
+        if verbose: 
+            self.ydl_options["quiet"] = False
         if self.path is None:
             if target_dir is not None:
                 if not os.path.exists(target_dir):
@@ -53,24 +62,21 @@ class AudioSetMix(MixDataset):
             if dl_size is not None:
                 self.infos = self.infos.sample(dl_size)
             self.path = os.path.dirname(self.path)
-            with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-                for idx, row in self.infos.iterrows():
-                    print(idx, row)
-                    with Bar("Downloading audio samples", max=dl_size) as bar:
+            with yt_dlp.YoutubeDL(self.ydl_options) as ydl:
+                with Bar("Downloading audio samples", max=dl_size) as bar:
+                    for idx, row in self.infos.iterrows():
                         try:
                             if not os.path.exists(os.path.join(self.path, f"{row['id']}.wav")):
                                 ydl.download([YOUTUBE_BASE + row["id"]])
                             if trim:
-                                print(f"Now trimming video")
                                 self._trim_sound(row)
                         except yt_dlp.utils.ExtractorError as exc:
-                            print(f"Could not download {row['id']}")
                             self.infos = self.infos.drop(labels=[idx])
                         except yt_dlp.utils.DownloadError as exc:
-                            print(f"Could not download {row['id']}")
                             self.infos = self.infos.drop(labels=[idx])
                         except KeyboardInterrupt:
                             self.infos = self.infos.drop(labels=[idx])
+                            print("Stopping with user interrupt")
                             break
                         bar.next()
             print(os.path.join(self.path, "infos.csv"))

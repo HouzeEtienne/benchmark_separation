@@ -8,6 +8,7 @@ if __name__ == "__main__":
     size = 1
     trim = False
     target = None
+    verbose = False
     args = sys.argv
     i = 1
     while i < len(args):
@@ -18,6 +19,12 @@ if __name__ == "__main__":
                 size = int(args[i+1])
             case "-t":
                 target = args[i+1]
+            case "--trim":
+                i -= 1
+                trim = True
+            case "-v":
+                i -= 1
+                verbose = True
             case _:
                 print(f"Incorrect option {args[i]}")
         i += 2
@@ -25,5 +32,6 @@ if __name__ == "__main__":
         path=path,
         dl_size=size,
         target_dir=target,
-        trim=trim
+        trim=trim,
+        verbose=verbose
     )
