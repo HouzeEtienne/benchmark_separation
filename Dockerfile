@@ -16,5 +16,7 @@ RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
 
 USER user
 
-COPY . /workdir
+COPY ./main.py /workdir/main.py
+COPY ./data /workdir/data
+
 WORKDIR /workdir

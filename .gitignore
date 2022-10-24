@@ -1,5 +1,7 @@
+testing/
 audioset
 .vscode
 .pytest_cache
 new_dir
 testing_command
+audioset_*

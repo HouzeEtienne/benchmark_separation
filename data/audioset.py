@@ -26,7 +26,7 @@ YOUTUBE_BASE = "https://youtube.com/watch?v="
 
 class AudioSetMix(MixDataset):
     def __init__(self, path: str | None=None, dl_size: int|None=None, target_dir: str|None=None,
-        trim=False, verbose=False) -> None:
+        trim=False, verbose=False, sep="comma") -> None:
         """Builds an MixDataset object to generate samples from the audioset DS.
 
         The audioset DS is available at `https://research.google.com/audioset/download.html`
@@ -38,11 +38,13 @@ class AudioSetMix(MixDataset):
             target_dir (str | None, optional): _description_. Defaults to None.
             trim (bool, optional): _description_. Defaults to False.
             verbose (bool, optional): _description_. Defaults to False.
+            sep (str, optional): separator to use to read the csv file.
         """
         super().__init__()
         self.infos: pd.DataFrame = None
         self.path = path
         self.ydl_options = YDL_OPTS
+        self.is_trimmed = trim
         if verbose: 
             self.ydl_options["quiet"] = False
         if self.path is None:
@@ -58,10 +60,14 @@ class AudioSetMix(MixDataset):
             print(self.path)
         if os.path.exists(self.path) and self.path[-4:] == ".csv":
             print("Using csv file to download samples.")
-            self.infos = pd.read_csv(self.path)
+            if sep == "tab":
+                self.infos = pd.read_csv(self.path, sep="\t")
+            else:
+                self.infos = pd.read_csv(self.path)
             if dl_size is not None:
                 self.infos = self.infos.sample(dl_size)
             self.path = os.path.dirname(self.path)
+            new_infos = pd.DataFrame({col: [] for col in self.infos.columns})
             with yt_dlp.YoutubeDL(self.ydl_options) as ydl:
                 with Bar("Downloading audio samples", max=dl_size) as bar:
                     for idx, row in self.infos.iterrows():
@@ -69,16 +75,22 @@ class AudioSetMix(MixDataset):
                             if not os.path.exists(os.path.join(self.path, f"{row['id']}.wav")):
                                 ydl.download([YOUTUBE_BASE + row["id"]])
                             if trim:
-                                self._trim_sound(row)
+                                self._trim_sound(row, idx)
+                            else:
+                                os.move()
+                            new_infos.loc[idx] = row
                         except yt_dlp.utils.ExtractorError as exc:
-                            self.infos = self.infos.drop(labels=[idx])
+                            # self.infos = self.infos.drop(labels=[idx])
+                            pass
                         except yt_dlp.utils.DownloadError as exc:
-                            self.infos = self.infos.drop(labels=[idx])
+                            # self.infos = self.infos.drop(labels=[idx])
+                            pass
                         except KeyboardInterrupt:
-                            self.infos = self.infos.drop(labels=[idx])
+                            # self.infos = self.infos.drop(labels=[idx])
                             print("Stopping with user interrupt")
                             break
                         bar.next()
+            self.infos = new_infos
             print(os.path.join(self.path, "infos.csv"))
             print(self.infos.shape)
             self.infos.to_csv(os.path.join(self.path, "infos.csv"))
@@ -90,12 +102,16 @@ class AudioSetMix(MixDataset):
             print(self.path)
             raise ValueError()
 
-    def _trim_sound(self, info_row: pd.Series):
+    def _trim_sound(self, info_row: pd.Series, index: int|None = None):
         filepath = os.path.join(self.path, "samples", info_row["id"] + ".wav")
+        if index is None:
+            new_fp = filepath
+        else:
+            new_fp = os.path.join(self.path, 'samples', str(index) + ".wav")
         sr, y = wavfile.read(filepath)
-        print(y.shape)
         start, stop = int((float(info_row["start"])) * sr), int(float(info_row["stop"]) * sr)
-        wavfile.write(filename=filepath, rate=sr, data=y[start:stop])
+        wavfile.write(filename=new_fp, rate=sr, data=y[start:stop])
+        os.remove(filepath)
 
     def _download_clean_csv(self, csv_url: str, target_path: str):
         """Small helper method
