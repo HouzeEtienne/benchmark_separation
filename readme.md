@@ -10,6 +10,11 @@ Source separation has been identified as one of the many challenges one should o
 This repo contains code to test different existing approaches on the same tasks.
 
 ## How to use
-This repo is meant to be used within the Docker `nussl` image that is available on the OVH ssh machine.
+The script can be used as a standalone, or with the docker image built from the Dockerfile.
 
-## Measures
+To build the docker image, just run `./make.sh`.
+
+Then, to run the container, use, for instance (other options may be used):
+```bash
+docker run  --rm -v [PATH TO DATA FOLDER]:/home/user/audioset -v $(PWD):/home/user audioset_tool python main.py [OPTIONS]
+```

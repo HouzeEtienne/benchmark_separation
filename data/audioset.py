@@ -2,13 +2,13 @@
 # import sys
 # sys.path.append('/workdir/Benchmark_separation')
 
-from data.mix_data import MixDataset
 import yt_dlp
 import os
 import pandas as pd
 from progress.bar import Bar
 import requests
 import scipy.io.wavfile as wavfile
+import math
 # if os.environ.get("NUSSL", False):
 #     import nussl
 
@@ -24,27 +24,33 @@ YDL_OPTS = {
 URL_AUDIOSET = "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/unbalanced_train_segments.csv"
 YOUTUBE_BASE = "https://youtube.com/watch?v="
 
-class AudioSetMix(MixDataset):
-    def __init__(self, path: str | None=None, dl_size: int|None=None, target_dir: str|None=None,
-        trim=False, verbose=False, sep="comma") -> None:
-        """Builds an MixDataset object to generate samples from the audioset DS.
-
+class AudioSetDownloader:
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def download( self,
+            dl_size: int|None=None,
+            target_dir: str|None=None,
+            trim=False, verbose=False,
+            sep="comma",
+            start_idx: int=0) -> None:
+        """Downloads the datset, fetching it from the online website
         The audioset DS is available at `https://research.google.com/audioset/download.html`
 
         Args:
-            path (str | None, optional): path to either the csv file containing 
-                the addresses of the folder containing the dataset. Defaults to None.
             dl_size (int | None, optional): _description_. Defaults to None.
             target_dir (str | None, optional): _description_. Defaults to None.
             trim (bool, optional): _description_. Defaults to False.
             verbose (bool, optional): _description_. Defaults to False.
-            sep (str, optional): separator to use to read the csv file.
+            sep (str, optional): separator to use to read the csv file. Defaults to "comma", to read standard csv files.
+            start_idx (int, optional): it is possible to specify an index to start with, so that 
         """
         super().__init__()
         self.infos: pd.DataFrame = None
-        self.path = path
+        self.path = None
         self.ydl_options = YDL_OPTS
         self.is_trimmed = trim
+        self.start_idx = start_idx
         if verbose: 
             self.ydl_options["quiet"] = False
         if self.path is None:
@@ -64,13 +70,17 @@ class AudioSetMix(MixDataset):
                 self.infos = pd.read_csv(self.path, sep="\t")
             else:
                 self.infos = pd.read_csv(self.path)
-            if dl_size is not None:
-                self.infos = self.infos.sample(dl_size)
+            if dl_size is None:
+                dl_size = math.inf
             self.path = os.path.dirname(self.path)
             new_infos = pd.DataFrame({col: [] for col in self.infos.columns})
+            self.infos = self.infos.loc[self.start_idx:]
+            counter_downloads = 0
             with yt_dlp.YoutubeDL(self.ydl_options) as ydl:
                 with Bar("Downloading audio samples", max=dl_size) as bar:
                     for idx, row in self.infos.iterrows():
+                        if counter_downloads >= dl_size:
+                            break
                         try:
                             if not os.path.exists(os.path.join(self.path, f"{row['id']}.wav")):
                                 ydl.download([YOUTUBE_BASE + row["id"]])
@@ -79,6 +89,7 @@ class AudioSetMix(MixDataset):
                             else:
                                 os.move()
                             new_infos.loc[idx] = row
+                            counter_downloads += 1
                         except yt_dlp.utils.ExtractorError as exc:
                             # self.infos = self.infos.drop(labels=[idx])
                             pass
@@ -91,8 +102,6 @@ class AudioSetMix(MixDataset):
                             break
                         bar.next()
             self.infos = new_infos
-            print(os.path.join(self.path, "infos.csv"))
-            print(self.infos.shape)
             self.infos.to_csv(os.path.join(self.path, "infos.csv"))
         elif os.path.isdir(self.path):
             self.infos = pd.read_csv(os.path.join(self.path, "infos.csv"))
@@ -103,6 +112,12 @@ class AudioSetMix(MixDataset):
             raise ValueError()
 
     def _trim_sound(self, info_row: pd.Series, index: int|None = None):
+        """Helper method to trim sounds that have been downloaded, to keep only the annotated part
+
+        Args:
+            info_row (pd.Series): the row from the `infos.csv` file describing the sound to trim
+            index (int | None, optional): Index of the row, used to name the new file, if provided. Defaults to None (no renaming).
+        """        
         filepath = os.path.join(self.path, "samples", info_row["id"] + ".wav")
         if index is None:
             new_fp = filepath
@@ -114,13 +129,12 @@ class AudioSetMix(MixDataset):
         os.remove(filepath)
 
     def _download_clean_csv(self, csv_url: str, target_path: str):
-        """Small helper method
+        """Small helper method to download the csv and clean it so it can be easily parsed by Pandas.
 
         Args:
             csv_url (str): path to the csv describing the audioset DS
             target_path (str): path to write the clean csv to.
         """        
-        print("No path given, downloading the set infos")
         try:
             with open(target_path, "wb+") as info:
                 info.write(requests.get(csv_url).content)
@@ -136,14 +150,3 @@ class AudioSetMix(MixDataset):
             self.path = target_path
         except Exception as exc:
             print("Trouble getting the csv file, maybe check if the URL is correct or download manually")
-            
-
-    # def get_samples(self, n_samples=1) -> list[nussl.AudioSignal]:
-    #     to_ret = []
-    #     counter = 0
-    #     for _, row in self.infos.iterrows():
-    #         to_ret.append(nussl.AudioSignal(os.path.join(self.path, "samples", f"{row['id']}.wav")))
-    #         counter += 1
-    #         if counter > n_samples:
-    #             break
-    #     return to_ret

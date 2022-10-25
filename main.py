@@ -1,37 +1,28 @@
-import sys
-import os
+import argparse
 
-from data.audioset import AudioSetMix
+from data.audioset import AudioSetDownloader
 
 if __name__ == "__main__":
-    path = None
-    size = 1
-    trim = False
-    target = None
-    verbose = False
-    args = sys.argv
-    i = 1
-    while i < len(args):
-        match args[i]:
-            case "-p":
-                path = args[i+1]
-            case "-n":
-                size = int(args[i+1])
-            case "-t":
-                target = args[i+1]
-            case "--trim":
-                i -= 1
-                trim = True
-            case "-v":
-                i -= 1
-                verbose = True
-            case _:
-                print(f"Incorrect option {args[i]}")
-        i += 2
-    dataset = AudioSetMix(
-        path=path,
+    start = 0
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--path", help="Some path [DEPRECATED]", default=None)
+    parser.add_argument("-n", "--number", help="Maximum number of files to download", default=1, type=int)
+    parser.add_argument("-t", "--target", help="Target directory to store the dataset to", default=None)
+    parser.add_argument("--trim", action='store_true', help="Whether to trim the output or not, defaults to False", default=False)
+    parser.add_argument("-v", "--verbose", help="Increase verbosity", action="store_true", default=False)
+    parser.add_argument("-s", "--start", help="Start index, useful to resume downloading", type=int, default=0)
+    args = parser.parse_args()
+    print(args)
+    target = args.target
+    size = args.number
+    trim = args.trim
+    verbose = args.verbose
+    start = args.start
+    downloader = AudioSetDownloader()
+    downloader.download(
         dl_size=size,
         target_dir=target,
         trim=trim,
-        verbose=verbose
+        verbose=verbose,
+        start_idx=start
     )
