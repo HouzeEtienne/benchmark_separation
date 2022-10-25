@@ -11,6 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--trim", action='store_true', help="Whether to trim the output or not, defaults to False", default=False)
     parser.add_argument("-v", "--verbose", help="Increase verbosity", action="store_true", default=False)
     parser.add_argument("-s", "--start", help="Start index, useful to resume downloading", type=int, default=0)
+    parser.add_argument("-m", "--mode", help="Type of the dataset", choices=["unbalanced", "balanced", "eval"], default="unbalanced")
     args = parser.parse_args()
     print(args)
     target = args.target
@@ -18,11 +19,13 @@ if __name__ == "__main__":
     trim = args.trim
     verbose = args.verbose
     start = args.start
+    mode = args.mode
     downloader = AudioSetDownloader()
     downloader.download(
         dl_size=size,
         target_dir=target,
         trim=trim,
         verbose=verbose,
-        start_idx=start
+        start_idx=start,
+        mode=mode
     )

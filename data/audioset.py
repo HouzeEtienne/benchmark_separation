@@ -21,7 +21,11 @@ YDL_OPTS = {
     "outtmpl": "./audioset/samples/%(id)s.%(ext)s",
     "quiet": True
 }
-URL_AUDIOSET = "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/unbalanced_train_segments.csv"
+URL_AUDIOSET = {
+    "unbalanced": "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/unbalanced_train_segments.csv",
+    "balanced": "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/balanced_train_segments.csv",
+    "eval": "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/eval_segments.csv",}
+
 YOUTUBE_BASE = "https://youtube.com/watch?v="
 
 class AudioSetDownloader:
@@ -33,7 +37,8 @@ class AudioSetDownloader:
             target_dir: str|None=None,
             trim=False, verbose=False,
             sep="comma",
-            start_idx: int=0) -> None:
+            start_idx: int=0,
+            mode="unbalanced") -> None:
         """Downloads the datset, fetching it from the online website
         The audioset DS is available at `https://research.google.com/audioset/download.html`
 
@@ -44,12 +49,14 @@ class AudioSetDownloader:
             verbose (bool, optional): _description_. Defaults to False.
             sep (str, optional): separator to use to read the csv file. Defaults to "comma", to read standard csv files.
             start_idx (int, optional): it is possible to specify an index to start with, so that 
+            mode (str, optional): mode of the dataset, either `unbalanced`, `balanced` or `eval`. Defaults to `unbalanced`.
         """
         super().__init__()
         self.infos: pd.DataFrame = None
         self.path = None
         self.ydl_options = YDL_OPTS
         self.is_trimmed = trim
+        self.mode = mode
         self.start_idx = start_idx
         if verbose: 
             self.ydl_options["quiet"] = False
@@ -61,7 +68,7 @@ class AudioSetDownloader:
                 self.ydl_options["outtmpl"] = target_dir + "/samples/%(id)s.%(ext)s"
             else:
                 filepath = "./audioset/infos.csv"
-            self._download_clean_csv(URL_AUDIOSET, filepath)
+            self._download_clean_csv(URL_AUDIOSET.get(self.mode), filepath)
             self.path = filepath
             print(self.path)
         if os.path.exists(self.path) and self.path[-4:] == ".csv":
